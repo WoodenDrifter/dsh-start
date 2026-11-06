@@ -1,0 +1,59 @@
+/* 主题变量：色值取自旧版 Theme.xaml，保持视觉一致 */
+:root {
+  --bg: #1a1b1e;
+  --side: #242528;
+  --card: #2a2b2f;
+  --line: #353639;
+  --line-strong: #45464a;
+  --text: #e6e6e8;
+  --text2: #b0b3b8;
+  --text3: #76797e;
+  --primary: #5c7bff;
+  --primary-hover: #7c9bff;
+  --primary-soft: #1e2a4d;
+  --ok: #2ec866;
+  --ok-soft: #1a3326;
+  --warn: #f0931b;
+  --warn-soft: #332817;
+  --err: #ff5c5c;
+  --err-soft: #331a1a;
+  --hover: #353639;
+  --code: #0f1012;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  --font: 'Segoe UI Variable Text', 'Microsoft YaHei UI', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', Consolas, 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { color: var(--primary-hover); }
+
+button { font: inherit; color: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: #5a5b60; }
+
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--text2); }
+.dim { color: var(--text3); }
+.nowrap { white-space: nowrap; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hidden { display: none !important; }

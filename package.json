@@ -1,0 +1,11 @@
+{
+  "name": "dsh-start-console",
+  "version": "2.1.0",
+  "private": true,
+  "description": "dsh web 的浏览器版控制台：启停、更新与回退、域名白名单、设备与密钥、环境体检",
+  "type": "module",
+  "main": "server/main.js",
+  "engines": {
+    "node": ">=20"
+  }
+}

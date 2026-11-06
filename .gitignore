@@ -1,0 +1,19 @@
+# 运行时数据：不进仓库，也不进发布包
+config/
+logs/
+backups/
+restore-points/
+legacy/
+
+# 依赖与临时文件
+node_modules/
+*.log
+*.zip
+*.tmp
+*.bad
+.DS_Store
+Thumbs.db
+
+# 编译中间产物
+tools/launcher/AssemblyInfo.cs
+tools/launcher/app.manifest
