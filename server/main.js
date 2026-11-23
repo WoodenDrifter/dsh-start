@@ -16,7 +16,7 @@ import * as session from './session.js'
 import { registerRoutes } from './routes/index.js'
 
 const APP = 'dsh-start-console'
-const VERSION = '2.1.0'
+const VERSION = '2.1.1'
 const startedAt = Date.now()
 
 const argv = process.argv.slice(2)

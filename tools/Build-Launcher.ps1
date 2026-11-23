@@ -23,7 +23,7 @@ if (-not (Test-Path -LiteralPath $csc)) {
 if (-not (Test-Path -LiteralPath $csc)) { throw '找不到 csc.exe（.NET Framework 编译器）' }
 if (-not (Test-Path -LiteralPath $src)) { throw "找不到源文件：$src" }
 
-$version = '2.1.0.0'
+$version = '2.1.1.0'
 $asmInfo = Join-Path $work 'AssemblyInfo.cs'
 @"
 using System.Reflection;

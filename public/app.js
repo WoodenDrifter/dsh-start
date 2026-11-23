@@ -95,7 +95,8 @@ async function route() {
       return state.status
     },
     refresh: () => pollStatus(true),
-    open: (target) => api.post('/api/system/open', { target }).catch(() => {}),
+    // 失败时 api 层已经 toast 过具体原因（路径不存在 / 打开失败），这里不再吞掉
+    open: (target) => api.post('/api/system/open', { target }).catch(() => null),
   }
   state.pageEl = view
   try {

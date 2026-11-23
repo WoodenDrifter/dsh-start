@@ -102,13 +102,16 @@ export function render(view, ctx) {
         h('div', { class: 'card-head' }, h('div', { class: 'card-title' }, '目录')),
         h(
           'div',
-          { class: 'row' },
-          btn('打开控制台目录', () => ctx.open('root'), { kind: 'ghost', size: 'sm' }),
-          btn('打开配置目录', () => ctx.open('config'), { kind: 'ghost', size: 'sm' }),
-          btn('打开日志目录', () => ctx.open('logs'), { kind: 'ghost', size: 'sm' }),
-          btn('打开 dsh 数据目录', () => ctx.open('dsh-home'), { kind: 'ghost', size: 'sm' }),
-          btn('打开 npm 全局目录', () => ctx.open('npm-global'), { kind: 'ghost', size: 'sm' })
-        )
+          { class: 'row', style: { flexWrap: 'wrap' } },
+          btn('控制台目录', () => ctx.open('root'), { kind: 'ghost', size: 'sm' }),
+          btn('配置目录', () => ctx.open('config'), { kind: 'ghost', size: 'sm' }),
+          btn('日志目录', () => ctx.open('logs'), { kind: 'ghost', size: 'sm' }),
+          btn('备份目录', () => ctx.open('backups'), { kind: 'ghost', size: 'sm' }),
+          btn('回退点目录', () => ctx.open('restore-points'), { kind: 'ghost', size: 'sm' }),
+          btn('dsh 数据目录', () => ctx.open('dsh-home'), { kind: 'ghost', size: 'sm' }),
+          btn('npm 全局目录', () => ctx.open('npm-global'), { kind: 'ghost', size: 'sm' })
+        ),
+        h('div', { class: 'dim', style: { fontSize: '11.5px', marginTop: '8px' } }, '用资源管理器打开对应目录；路径不存在时会在下方弹出具体原因。')
       )
     )
   )

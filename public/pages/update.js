@@ -172,6 +172,16 @@ export function render(view, ctx) {
         h('div', { class: 'card-title' }, '回退点'),
         h('div', { class: 'spacer' }),
         h('span', { class: 'dim', style: { fontSize: '11.5px' } }, `${r.items.length} 条`),
+        btn('立即备份', async () => {
+          const ok = await confirmModal(
+            '立即备份',
+            '把 ~/.dsh 里的用户数据（会话 / 配置 / 插件）打成一个 zip，并落一条回退点。\n\n随时可以用它恢复数据；备份期间不会停 dsh web。',
+            { okText: '开始备份' }
+          )
+          if (!ok) return
+          runJob(() => api.post('/api/restore-points/manual', { message: '手动备份' }), '手动备份')
+        }, { kind: 'primary', size: 'sm' }),
+        btn('备份目录', () => ctx.open('backups'), { kind: 'ghost', size: 'sm' }),
         btn('清理失效的', async () => {
           if (!(await confirmModal('清理失效回退点', '只清理「指向的数据备份已经不存在」的记录，正常回退点不受影响。', { okText: '清理' }))) return
           try {
@@ -185,11 +195,12 @@ export function render(view, ctx) {
       )
     )
     if (!r.items.length) {
-      rpCard.appendChild(h('div', { class: 'empty' }, '还没有回退点。每次更新前会自动记录。'))
+      rpCard.appendChild(h('div', { class: 'empty' }, '还没有回退点。更新前会自动记录，也可以点右上角「立即备份」手动建一条。'))
       return
     }
     const list = h('div', { class: 'list' })
     for (const it of r.items) {
+      const manual = it.kind === 'manual'
       list.appendChild(
         h(
           'div',
@@ -197,18 +208,20 @@ export function render(view, ctx) {
           h(
             'div',
             { class: 'grow' },
-            h('div', { class: 'title' }, `${it.fromVersion || '?'} → ${it.toVersion || '?'}`),
+            h('div', { class: 'title' }, manual ? `手动备份 · ${it.toVersion || it.fromVersion || '未知版本'}` : `${it.fromVersion || '?'} → ${it.toVersion || '?'}`),
             h('div', { class: 'meta' }, [fmtTime(it.createdAt), it.backup ? `数据备份 ${it.backup}` : '无数据备份', it.message].filter(Boolean).join('　·　'))
           ),
-          it.status === 'success' ? badge('成功', 'ok') : it.status === 'failed' ? badge('失败', 'err') : it.status === 'rolled-back' ? badge('已回退', 'info') : badge(it.status, ''),
-          btn('回退', async () => {
+          it.status === 'success' ? badge(manual ? '可恢复' : '成功', 'ok') : it.status === 'failed' ? badge('失败', 'err') : it.status === 'rolled-back' ? badge('已回退', 'info') : badge(it.status, ''),
+          btn(manual ? '恢复数据' : '回退', async () => {
             const ok = await confirmModal(
-              '回退版本',
-              `把 dsh 退回到 ${it.fromVersion}。\n\n顺序是：先重装程序版本，再（可选）恢复数据。\n即使数据恢复有个别文件失败，程序版本也会回退成功。`,
-              { okText: '回退', danger: true }
+              manual ? '恢复数据备份' : '回退版本',
+              manual
+                ? `把用户数据恢复到 ${fmtTime(it.createdAt)} 的状态（备份 ${it.backup}）。\n\n当前版本已经是 ${it.toVersion || it.fromVersion}，不会再装 npm。恢复前会自动把当前数据再备份一份。`
+                : `把 dsh 退回到 ${it.fromVersion}。\n\n顺序是：先重装程序版本，再（可选）恢复数据。\n即使数据恢复有个别文件失败，程序版本也会回退成功。`,
+              { okText: manual ? '恢复' : '回退', danger: true }
             )
             if (!ok) return
-            runJob(() => api.post(`/api/restore-points/${encodeURIComponent(it.id)}/rollback`, { restoreData: Boolean(it.backup) }), '回退')
+            runJob(() => api.post(`/api/restore-points/${encodeURIComponent(it.id)}/rollback`, { restoreData: Boolean(it.backup) }), manual ? '恢复数据' : '回退')
           }, { size: 'sm' }),
           btn('删除', async (ev) => {
             if (!(await confirmModal('删除回退点', `只删除这条记录，不动备份文件 ${it.backup || ''}。`, { okText: '删除', danger: true }))) return

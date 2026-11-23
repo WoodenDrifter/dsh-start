@@ -2,6 +2,7 @@
 import * as settings from '../../lib/settings.js'
 import * as dsh from '../../lib/dsh.js'
 import * as env from '../../lib/env.js'
+import * as backup from '../../lib/backup.js'
 import * as registry from '../../lib/registry.js'
 import * as update from '../../lib/update.js'
 import * as rp from '../../lib/restorepoints.js'
@@ -9,7 +10,8 @@ import * as runtime from '../../lib/runtime.js'
 import * as jobs from '../jobs.js'
 import * as session from '../session.js'
 import * as sse from '../sse.js'
-import { openExternal } from '../../lib/proc.js'
+import { openExternal, openPath } from '../../lib/proc.js'
+import fs from 'node:fs'
 import { dshVersionFromPkg, DIR, FILE, dshHome, npmPrefix, dshPkgDir, nodeExe, dshBin } from '../../lib/paths.js'
 import { readJson, tailLines, normalizeHost, compareVersion, exists, fmtBytes } from '../../lib/util.js'
 import * as log from '../../lib/log.js'
@@ -72,21 +74,32 @@ export function registerRoutes(router, deps) {
 
   router.post('/api/system/open', async ({ body }) => {
     const target = String((body && body.target) || '')
+    if (target === 'url') {
+      const url = String((body && body.url) || '')
+      if (!/^https?:/i.test(url)) return fail('BAD_URL', '只接受 http / https 地址')
+      const r = openExternal(url)
+      if (!r.ok) return fail('OPEN_FAILED', '打开浏览器失败：' + r.message)
+      return { opened: true, target: url }
+    }
     const map = {
       root: DIR.root,
       backups: DIR.backups,
+      'restore-points': DIR.restorePoints,
       logs: DIR.logs,
       config: DIR.config,
       'dsh-home': dshHome(),
       'npm-global': npmPrefix(),
     }
-    if (target === 'url' && body && body.url) {
-      openExternal(String(body.url))
-      return { opened: true, target: body.url }
-    }
     const p = map[target]
-    if (!p) return fail('BAD_TARGET', '未知开关：' + target)
-    openExternal(p)
+    if (!p) return fail('BAD_TARGET', '未知目录：' + target)
+    // 目录可能还没建（比如从没备份过），先建出来再打开，避免「点了没反应」
+    if (target === 'backups' || target === 'restore-points' || target === 'logs' || target === 'config') {
+      try {
+        fs.mkdirSync(p, { recursive: true })
+      } catch {}
+    }
+    const r = openPath(p)
+    if (!r.ok) return fail('OPEN_FAILED', r.message, 400, p)
     return { opened: true, target: p }
   })
 
@@ -243,7 +256,47 @@ export function registerRoutes(router, deps) {
 
   router.get('/api/update/journal', async () => ({ journal: update.pendingJournal() }))
 
+  // ---------------------------------------------------------------- 备份
+  // 备份不再单独占一页，入口在「更新与回退 → 回退点」里的「立即备份」。
+  // 一次手动备份 = 一份数据 zip + 一条回退点记录（kind=manual），这样它也能被回退。
+  router.get('/api/backups', async () => {
+    const items = backup.list()
+    return {
+      items: items.map((i) => ({ name: i.name, sizeMB: i.sizeMB, sizeText: i.sizeText, mtime: i.mtime, kind: i.kind, dshVersion: i.manifest ? i.manifest.dshVersion : null, files: i.manifest ? i.manifest.files : null })),
+      totalMB: +items.reduce((n, x) => n + (x.sizeMB || 0), 0).toFixed(2),
+      dir: DIR.backups,
+    }
+  })
+
+  router.get('/api/backups/plan', async () => backup.plan())
+
+  router.post('/api/backups', async ({ body }) => {
+    const prefix = String((body && body.prefix) || 'manual').replace(/[^\w-]/g, '') || 'manual'
+    const note = String((body && body.message) || '手动备份').slice(0, 80)
+    return startJob('backup', '手动备份', async (j) => {
+      const ver = dshVersionFromPkg()
+      const b = await backup.create(j, prefix)
+      const record = rp.create({ kind: 'manual', fromVersion: ver, toVersion: ver, status: 'success', backup: b.name, message: note })
+      j.line(`已生成回退点：${record.id}`)
+      j.progress({ stage: 'done', percent: 100, message: `备份完成：${b.name}` })
+      return { ...b, restorePoint: record.id }
+    })
+  })
+
   router.get('/api/restore-points', async () => ({ items: rp.list() }))
+
+  // 「立即备份」：一次搞定数据快照 + 回退点，省得用户分两步
+  router.post('/api/restore-points/manual', async ({ body }) => {
+    const note = String((body && body.message) || '手动备份').slice(0, 80)
+    return startJob('backup', '手动备份', async (j) => {
+      const ver = dshVersionFromPkg()
+      const b = await backup.create(j, 'manual')
+      const record = rp.create({ kind: 'manual', fromVersion: ver, toVersion: ver, status: 'success', backup: b.name, message: note })
+      j.line(`已生成回退点：${record.id}`)
+      j.progress({ stage: 'done', percent: 100, message: `备份完成：${b.name}` })
+      return { backup: b, restorePoint: record.id }
+    })
+  })
 
   router.post('/api/restore-points/:id/rollback', async ({ params, body }) => {
     return startJob('rollback', '回退到旧版本', async (j) => await update.rollback(j, params.id, { restoreData: Boolean(body && body.restoreData) }))

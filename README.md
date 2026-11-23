@@ -19,7 +19,7 @@
 |---|---|
 | 概览 | 服务状态、PID、运行时长、带 token 的访问地址；一键复制 / 打开 |
 | dsh web | 启动 / 停止 / 重启、stdout 与 stderr 日志、访问地址 |
-| 更新与回退 | 版本对比、更新到最新、切换任意历史版本、修复半装、回退点一键回退 |
+| 更新与回退 | 版本对比、更新到最新、切换任意历史版本、修复半装；回退点里可「立即备份」手动建一条，也能一键回退 / 恢复数据 |
 | 域名白名单 | `--trusted-host` 增删（用隧道域名访问 dsh web 时必须加） |
 | 授权设备 | 只读展示设备库：名称、来源、创建 / 到期时间、剩余天数 |
 | 密钥 | dsh web 的访问 token（默认打码，可显示 / 复制）、设备密钥一览 |
@@ -73,7 +73,11 @@ DSH_START_BOOT_MS=120000    # 启动后等浏览器连上来的最长时间
 
 **更新是可恢复的。** 每次更新前先落一条回退点 + 一份数据备份，安装阶段写 `config\install-journal.json`，成功后删除。控制台被强杀留下「目录在、package.json 没了」的半装状态时，下次启动会在界面上明确提示，并可「修复安装」（不碰数据）。
 
-**回退顺序固定**：停服 → 重装程序版本 → 校验 → 恢复数据 → 重启。数据恢复里个别文件失败（被占用、只读）不会把版本卡在损坏状态。
+**回退顺序固定**：停服 → 重装程序版本 → 校验 → 恢复数据 → 重启。数据恢复里个别文件失败（被占用、只读）不会把版本卡在损坏状态。手动备份生成的回退点，如果旧版本就是当前版本，会跳过 npm 安装，只做数据恢复。
+
+**手动备份也是回退点。** 「更新与回退 → 回退点 → 立即备份」会打一份数据 zip 并落一条 `kind=manual` 的记录：既能在列表里看到时间与对应备份，也能直接用「恢复数据」还原。恢复是覆盖式的 —— 备份之后**新增**的文件不会被删除，恢复前会自动再备份一次当前状态。
+
+**目录按钮走 `explorer.exe`。** 早期版本用 `rundll32 url.dll,FileProtocolHandler` 打开目录，遇到 `C:\Program Files\...` 这类带空格的路径会被截断成 `C:\Program`，表现就是「点了没反应」；现在本地路径一律交给资源管理器，路径不存在会直接把原因弹出来。
 
 **查版本走真正的 CONNECT 隧道**（`tls.connect` + 自定义 Agent）；代理不通会自动退回直连，并在页面上标注「本次已直连」。
 
@@ -163,6 +167,7 @@ node tools\pack.mjs . dist\DSH-start.zip
 | 检查更新失败 | 设置里测一下代理；代理不通时会自动退回直连并标注 |
 | 更新被打断，dsh 起不来 | 「更新与回退」页会显示**安装损坏**，点「修复安装」重装（不碰数据） |
 | 回退时提示部分文件失败 | 这些文件被占用或带只读属性；程序版本已回退成功，重开 dsh 后再恢复一次 |
+| 「打开目录」没反应 | 2.1.1 起改用资源管理器打开，路径不存在会直接提示；若整页都没反应，多半是控制台进程已被杀，重开一次 |
 | 隧道域名访问接口全 401 | 到「域名白名单」把域名加上，然后重启 dsh web（走 `--trusted-host`） |
 | 从隧道访问提示不安全 | dsh web 只认它自己信任的 Host，域名必须先在白名单里 |
 
@@ -187,13 +192,23 @@ GET    /api/update/check           版本对比
 GET    /api/update/versions        可选版本列表
 POST   /api/update/install|repair  更新 / 修复
 GET    /api/restore-points         回退点列表
-POST   /api/restore-points/:id/rollback   回退
+POST   /api/restore-points/manual  立即备份（数据 zip + 回退点）
+POST   /api/restore-points/:id/rollback   回退 / 恢复数据
+DELETE /api/restore-points/:id     删除回退点
+GET    /api/backups                备份文件列表
+POST   /api/system/open            打开目录（target=root|config|logs|backups|restore-points|dsh-home|npm-global）或 url
 GET    /api/jobs/:id               任务进度
 ```
 
 ---
 
 ## 更新日志
+
+**2.1.1**
+- 修复「设置 → 目录」里打开文件夹无效：本地路径改用 `explorer.exe`，带空格的路径不再被截断；失败时提示具体原因
+- 回退点新增「立即备份」：一键生成数据备份 + 回退点记录，可直接「恢复数据」
+- 回退逻辑：旧版本与当前版本一致时跳过 npm 安装，只恢复数据（手动备份回退更快更安全）
+- 新增 `/api/backups`、`/api/restore-points/manual` 接口；`/api/system/open` 增加 `backups`、`restore-points` 目标并校验返回值
 
 **2.1.0**
 - 移除 bsk 浏览器扩展 daemon 的全部功能（页面、接口、看门狗、路径与设置项）
